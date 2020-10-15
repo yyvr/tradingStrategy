@@ -1,7 +1,7 @@
 # for i in `cat tickers.txt`; do ./get15-20.sh $i; done
 # buy the biggest losers of a day and sell when price is up
 library(TTR)
-fp <- "/Users/yang/Downloads/invest/usstocks"
+fp <- "/Users/yang/Downloads/invest/prices"
 setwd(fp)
 file_list <- list.files(path = fp)
 num_stocks <- length(file_list)
@@ -85,20 +85,32 @@ realizedTrades <- function(data)
   return (realized)
 }
 
+omxh <- read.csv('^OMXH25.txt')
+#omxh <- omxh[as.Date(omxh$Date) > '2020-04-01', ]
+omxh$indexroc <- c(0, round(diff(omxh$Close)/omxh$Close[1:(nrow(omxh)-1)], 3))
+x <- omxh[omxh$indexroc <= -0.02, ]
+x$interval <- c(0, diff(as.Date(x$Date)))
 meta <- NULL
+all <- NULL
 for (i in 1:num_stocks)
 {
-  #if (file_list[i] != 'KAMUX.HE.txt') next
+  if (file_list[i] == '^OMXH25.txt') next
   stock <- read.csv(file_list[i])
+  stock <- stock[as.Date(stock$Date) > '2020-04-01', ]
+  stock[, 2:7] <- sapply(stock[, 2:7], as.numeric)
+  #stock$omxhroc <- omxh$indexroc
+  print(c(file_list[i], stock[as.Date(stock$Date) == '2020-09-21', ]$Close))
   ratios <- getOptimalDrop(stock, 20, 20)
+  #alltrades <- extractTrades(stock, -0.04, ratios[2])
   alltrades <- extractTrades(stock, ratios[1], ratios[2])
-  #print(c('Median drop', round(median(alltrades$drop), 4)))
   finaltrades <- alltrades[alltrades$drop <= median(alltrades$drop), ]
+  finaltrades$stock <- file_list[i]
   ss <- sum(finaltrades$roc)
-  #if (ss > 1)
+  if (ss > 0.5)
     meta <- rbind(meta, c(file_list[i], round(median(alltrades$drop), 4), ss, 
                           median(finaltrades$intervals), 
                           median(finaltrades$roc)))
+  all <- rbind(all, finaltrades)
 }
 colnames(meta) <- c('stock', 'mediandrop', 'accumreturn', 'medianInterval', 'medianreturn')
 

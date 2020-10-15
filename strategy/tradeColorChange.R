@@ -89,12 +89,6 @@ for (i in 1:length(file_list))
   stock <- read.csv(file_list[i], stringsAsFactors = FALSE)
   #stock <- stock[as.Date(stock$Date) >= '2018-01-01', ]
   #print(file_list[i])
-  if (file_list[i] == 'KESKOB.HE.txt')
-  {
-    stock[stock$Adj.Close > 20, ]$Adj.Close <- stock[stock$Adj.Close > 20, ]$Adj.Close/4
-    stock[stock$Close > 20, ]$Close <- stock[stock$Close > 20, ]$Close/4
-    stock[stock$Open > 20, ]$Open <- stock[stock$Open > 20, ]$Open/4
-  }
   
   stock <- addColumes(stock)
   x <- tradeColorChange(stock)
