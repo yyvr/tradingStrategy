@@ -1,23 +1,47 @@
 # close > previous day close, buy if next day gets higher than smash day high
+addColumes <- function(stock)
+{
+  stock$body <- abs(stock$Close - stock$Open)
+  stock$color <- 'red'
+  stock[stock$Close > stock$Open, ]$color <- 'green'
+  stock$tail <- 0
+  stock$head <- 0
+  for (j in 1:nrow(stock))
+  {
+    if (stock$Close[j] > stock$Open[j])
+    {
+      stock$tail[j] <- stock$Open[j] - stock$Low[j]
+      stock$head[j] <- stock$High[j] - stock$Close[j]
+    }
+    else
+    {
+      stock$tail[j] <- stock$Close[j] - stock$Low[j]
+      stock$head[j] <- stock$High[j] - stock$Open[j]
+    }
+  }
+  return (stock)
+}
+
 findNakedCloseDay <- function(stock, start)
 {
   nakedday <- NULL
-  for (i in 4 : (nrow(stock) - 2))
+  for (i in 6 : (nrow(stock) - 2))
   {
-    if (stock$Close[i] < stock$Low[i - 1] & # smash naked close day
+    if (stock$Close[i] < stock$Close[i - 1] & # smash naked close day
         stock$Close[i - 1] < stock$Close[i - 2] &
         stock$Close[i - 2] < stock$Close[i - 3] &
-        stock$Close[i - 2] < stock$Open[i - 2] &
-        stock$Close[i - 1] < stock$Open[i - 1])
+        stock$Close[i] < stock$Close[i - 5])
     {
       # next day is a hammer with long tail but short head
-      if ((stock$Open[i + 1] - stock$Low[i + 1]) >= 2 * (stock$Close[i + 1] - stock$Open[i + 1]) &
-          (stock$High[i + 1] - stock$Close[i + 1]) <= 1.5 * (stock$Close[i + 1] - stock$Open[i + 1]))
+      if (2 * stock$body[i + 1] <= stock$tail[i + 1] &
+          stock$head[i + 1] <= 0.02)
       {
         nakedday <- rbind(nakedday, i + 1)
-        #print(c('Hammer', as.character(stock$Date[i + 1])))
+        print(c('Hammer1', as.character(stock$Date[i + 1])))
       }
-      else if (stock$High[i] < stock$High[i + 1])
+      if (stock$High[i] < stock$High[i + 1] &
+          stock$tail[i + 1] > stock$head[i + 1] &
+          stock$color[i + 1] == 'green')
         nakedday <- rbind(nakedday, i + 1)
     }
   }
@@ -44,22 +68,28 @@ tradeNakedCloseDay <- function(stock, start)
   buy <- stock[nakedday, ]
   sell <- NULL
   selldate <- NULL
-  stopLossRate <- 0.95   
+  stopLossRate <- 0.97   
   for (i in nakedday)
   {
     bp <- stock$Close[i]
-
+    exit <- stock$Low[i]
     for (j in (i + 1) : (nrow(stock)))
     {
-      if (bp * stopLossRate > stock$Close[j])
+      #if ((j - i) > 10) break
+      if (stock$Close[j] < exit)
       {
         break
       }
-      else if (stock$Close[j] > 1.015 * bp)
+      
+      if (stock$Close[j] > bp)
+        exit <- stock$Low[j]
+      
+      if (stock$Close[j] > 1.06 * bp)
       {
         break
       }
     }
+
     sell <- c(sell, stock$Close[j])
     selldate <- c(selldate, as.character(stock$Date[j]))
   }
@@ -82,10 +112,11 @@ meta <- NULL
 interval <- 20
 for (i in 1 : num_stocks)
 {
-  #if (file_list[i] != 'ELISA.HE.txt') next
+  #if (file_list[i] != 'SAMPO.HE.txt') next
   if (file_list[i] == '^OMXH25.txt') next
   stock <- read.csv(file_list[i])
   stock$Date <- as.Date(stock$Date)
+  stock <- addColumes(stock)
   #stock <- stock[-c(findInsideDays(stock)), ]
   #stock$roc <- c(0, diff(stock$Close)/stock$Close[1 : (nrow(stock) - 1)])
   tr <- tradeNakedCloseDay(stock, interval)
@@ -96,8 +127,8 @@ for (i in 1 : num_stocks)
     
     loss <- tr[tr$roc < 0, ]
     gain <- tr[tr$roc > 0, ]
-    #if (nrow(loss) == 0)
-    if (sum(tr$roc) > 0.2)
+    #if (nrow(loss) < 4)
+    if (sum(tr$roc) > 0.3)
     {
       all <- rbind(all, cbind(file_list[i], tr))
       meta <- rbind(meta, c(file_list[i], sum(tr$roc), nrow(loss), nrow(tr), 

@@ -29,11 +29,11 @@ tradeImpliedSmash <- function(stock)
     bp <- stock$Close[i]
     for (j in (i + 1) : (nrow(stock)))
     {
-      if (bp * stopLossRate > stock$Close[j])
+      if (stock$Close[j] < stock$Low[i] * 0.98)
       {
         break
       }
-      else if (stock$Close[j] > 1.015 * bp)
+      else if (stock$Close[j] > 1.05 * bp)
       {
         break
       }
