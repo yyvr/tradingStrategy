@@ -85,9 +85,9 @@ alltrades <- NULL
 meta <- NULL
 for (i in 1:length(file_list))
 {
-  #if (file_list[i] != 'OUT1V.HE.txt') next
+  if (file_list[i] != 'NDA-FI.HE.txt') next
   stock <- read.csv(file_list[i], stringsAsFactors = FALSE)
-  #stock <- stock[as.Date(stock$Date) >= '2018-01-01', ]
+  stock <- stock[as.Date(stock$Date) >= '2020-04-01', ]
   #print(file_list[i])
   
   stock <- addColumes(stock)
