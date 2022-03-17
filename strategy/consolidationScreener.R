@@ -12,55 +12,66 @@ ss <- rbind(ss, ss1, ss2)
 ss$Sector <- as.factor(ss$Sector)
 ss$Industry <- as.factor(ss$Industry)
 
-xx <- ss[ss$IPO.Year < 2019 & (!is.na(ss$IPO.Year)) & 
-           ss$Last.Sale > 2, ]
-tickers <- xx$Symbol
+xx <- ss[ss$Last.Sale > 2, ]
 
-start <- '2020-10-01'
-end <- '2021-12-21'
+start <- '2020-12-01'
+end <- '2022-02-17'
 peirod <- paste(start, end)
 meta <- NULL
 
-screener <- function(tickers, start, end) {
-  meta <- NULL
-  for ( i in 1:length(tickers) ) {
-    tickers[i] <- trimws(tickers[i], whitespace = "[\\h\\v]")
-    if (tickers[i] == 'SPKE' || tickers[i] == 'AMR') next
-    stock <- tq_get(tickers[i],                    
-                    from = start,
-                    to = end,
-                    get = "stock.prices")
-    if (is.null(stock)) next
-    if (nrow(stock) < 180) next
-    if (sum(is.na(stock), na.rm = TRUE) != 0) next
+files <- list.files(path='/Users/yang/Downloads/invest/usprices/', pattern=NULL, all.files=FALSE,
+           full.names=TRUE)
+#s <- read.csv(paste('/Users/yang/Downloads/invest/usprices/', 'RBCAA', sep=''))
 
+screener <- function(start, end) {
+  meta <- NULL
+  for ( i in 1:length(files) ) {
+    stock <- read.csv(files[i])
+    stock <- stock[as.Date(stock$date) <= as.Date(end), ]
+    
+    if (is.null(stock)) next
+    if (nrow(stock) < 250) next
+    if (sum(is.na(stock), na.rm = TRUE) != 0) next
     if (any(is.na(stock$close))) next
-    head <- nrow(stock) - 100
+    head <- nrow(stock) - 60
     tail <- nrow(stock)
+    if (stock$close[tail]/stock$close[1] > 1.6) next
     
     # price > ema120
-    x <- stock$close[head : tail] < EMA(stock$close, 120)[head : tail]
-    if (sum(x, na.rm = TRUE) != 0) {
+    x <- stock$close[head : tail] < EMA(stock$close, 60)[head : tail]
+    if (sum(x, na.rm = TRUE) > 2) {
       next
     }
     
+    if (stock$close[tail] < EMA(stock$close, 20)[tail])
+      next
+    
     # price < 1.01 * ema20
-    if (stock$close[tail] >= 1.03 * EMA(stock$close, 20)[tail])
+    if (stock$close[tail] >= 1.02 * EMA(stock$close, 20)[tail])
+      next
+    
+    if (stock$close[tail] < EMA(stock$close, 20)[tail])
+      next
+    
+    if (EMA(stock$close, 20)[tail] < EMA(stock$close, 30)[tail])
       next
     
     #if (mean(stock$volume[head : tail]) > 1.1 * mean(stock$volume[1 : head]))
     #  next
     
-    if (EMA(stock$close, 20)[tail] > 1.026 * EMA(stock$close, 60)[tail])
+    if (EMA(stock$close, 20)[tail] > 1.03 * EMA(stock$close, 60)[tail])
       next
     
     if (EMA(stock$close, 120)[tail] < EMA(stock$close, 120)[head])
       next
     
-    if (stock$close[tail] < EMA(stock$close, 30)[tail])
+    if (stock$close[tail] < EMA(stock$close, 20)[tail])
       next
     
     if (EMA(stock$close, 60)[tail] < EMA(stock$close, 120)[tail])
+      next
+    
+    if (EMA(stock$close, 120)[tail] < EMA(stock$close, 200)[tail])
       next
     
     if (EMA(stock$close, 60)[head] < EMA(stock$close, 120)[head])
@@ -71,8 +82,8 @@ screener <- function(tickers, start, end) {
       next
     }
     
-    print(tickers[i])
-    meta <- rbind(meta, c(tickers[i], 
+    print(c(stock$symbol[1], i))
+    meta <- rbind(meta, c(stock$symbol[1], 
                           vol, 
                           mean(stock$volume[head : tail])/mean(stock$volume[1 : head]),
                           EMA(stock$close, 20)[tail]/EMA(stock$close, 60)[tail],
@@ -90,7 +101,38 @@ screener <- function(tickers, start, end) {
   return (meta)
 }
 
-meta <- screener(tickers, start, end)
+meta1 <- screener(start, '2022-01-03')
+meta2 <- screener(start, '2022-02-01')
+
+returnTestt <- function(meta, end, duration) {
+  result <- NULL
+  for (i in 1 : nrow(meta)) {
+    filename <- paste('/Users/yang/Downloads/invest/usprices/', meta$stock[i], sep='')
+    stock <- read.csv(filename)
+    index <- which(as.Date(stock$date) == as.Date(end))
+    ret <- stock$close[index + duration]/stock$close[index] - 1
+    rr <- c(meta$stock[i], 
+            stock$date[index], 
+            stock$close[index],
+            stock$date[index + duration], 
+            stock$close[index + duration],
+            round(ret, 3))
+    result <- rbind(result, rr)
+  }
+  
+  result <- data.frame(result)
+  colnames(result) <- c('stock', 'buyDate', 'buyPrice', 'sellDate', 
+                     'sellPrice', 'return')
+  result$return <- as.numeric(result$return)
+  return(result)
+}
+
+result1 <- returnTestt(meta1, '2022-01-03', 5)
+postiveReturn <- result1[as.numeric(result1$return) > 0, ]
+
+result2 <- returnTestt(meta2, '2022-02-1', 5)
+postiveReturn2 <- result1[as.numeric(result2$return) > 0, ]
+
 meta$`ema20/60` <- as.numeric(meta$`ema20/60`)
 meta$marketCap <- as.numeric(meta$marketCap)
 #meta <- meta[meta$`ema20/60` < 1.02, ]
