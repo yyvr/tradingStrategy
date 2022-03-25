@@ -5,24 +5,24 @@ library(dplyr)
 library(data.table)
 library(tibble)
 
-ss <- read.csv('/Users/yang/Downloads/invest/nyse.csv')
-ss1 <- read.csv('/Users/yang/Downloads/invest/nasdaq.csv')
-ss2 <- read.csv('/Users/yang/Downloads/invest/amex.csv')
-all <- rbind(ss, ss1, ss2)
+all <- read.csv('/Users/yang/Downloads/invest/all.csv')
+all <- data.frame(all)
+all <- all[all$Market.Cap > 1000000000/2, ]
+all <- all[!is.na(all$Symbol), ]
 all$Sector <- as.factor(all$Sector)
 all$Industry <- as.factor(all$Industry)
 
-tickers <- all$Symbol[(599+595+91+788):2072]
+tickers <- all$Symbol[(217+443+250+22+394+426+288+357+1147):nrow(all)]
 
 start <- '2020-01-01'
-end <- '2022-03-17'
+end <- '2022-03-24'
 peirod <- paste(start, end)
 # length(tickers)
 
-stock <- tq_get('CWK', from = start, to = end, get = "stock.prices")
-
 meta <- NULL
 for ( i in 1:length(tickers)) {
+  if (is.na(tickers[i]))
+    next
   print(i)
   tickers[i] <- trimws(tickers[i], whitespace = "[\\h\\v]")
   stock <- tq_get(tickers[i],                    
