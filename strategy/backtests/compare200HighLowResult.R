@@ -13,18 +13,6 @@ positiveRates <- data.frame(positiveRates)
 colnames(positiveRates) <- c('60d', '90d', '120d', '200d')
 rownames(positiveRates) <- c('NewHigh', 'NewLow')
 
-all <- read.csv('/Users/yang/Downloads/invest/tickers/nasdaq_screener_1671305006609.csv')
-marketCap <- NULL
-for (ticker in levels(as.factor(high$stock)))
-{
-  index <- which(all$Symbol == ticker)
-  marketCap <- rbind(marketCap, c(ticker, all$Market.Cap[index]))
-}
-marketCap <- data.frame(marketCap)
-colnames(marketCap) <- c('stock', 'marketCap')
-marketCap$marketCap <- as.numeric(marketCap$marketCap)/1000000000
-
-
 tradesByDateHigh <- high %>%
   group_by(date) %>%
   summarise(return200 = sum(ret200)/length(ret200),
@@ -139,33 +127,133 @@ getAllTradesReturns <- function(tradesByDate)
   return (allTrades)
 }
 
+addSPYReturns <- function(tradesByDate)
+{
+  spy <- tq_get('SPY',                    
+                from = tradesByDate$date[1],
+                to = tradesByDate$date[nrow(tradesByDate)],
+                get = "stock.prices")
+  for(i in 2 : nrow(tradesByDate))
+  {
+    index <- which(spy$date == tradesByDate$date[i])
+    if(length(index) == 1)
+      tradesByDate$spyReturn[i] <- spy$close[index]/spy$close[1] - 1
+  }
+  return(tradesByDate)
+}
+
+plotAllCompoundedReturns <- function(tradesByDate, name)
+{
+  allTrades <- getAllTradesReturns(tradesByDate)
+  allTrades$spyReturn <- 0
+  allTrades <- addSPYReturns(allTrades)
+  
+  maxValue <- max(allTrades$r60, allTrades$r90, allTrades$r120, allTrades$r200)
+  plot(allTrades$r60, xaxt = 'n', yaxt = 'n', pch = 20, ylim = c(-1, maxValue),
+       xlab = name, ylab = 'Compounded returns')
+  points(allTrades$r90, pch = 20, col = 'red')
+  points(allTrades$r120, pch = 20, col = '#7CCD7C')
+  points(allTrades$r200, pch = 20, col = 'blue')
+  points(allTrades$spyReturn, pch = 20, col = '#CDAD00')
+  axis(1, at=1:nrow(allTrades), labels = allTrades$date, cex.axis=0.6)
+  axis(2, at = seq(-1, maxValue, by = 1))
+  legend('topleft', legend=c('Return60', 'Return90', 'Return120', 'Return200', 'SPY Return'), 
+         col = c('black', 'red', '#7CCD7C', 'blue', '#CDAD00'), pch = 19, cex = 0.8)
+  abline(h=-0.5, col = 'red')
+}
+
+plotAllCompoundedReturns(tradesByDateHigh, '200day new high strategy')
+plotAllCompoundedReturns(tradesByDateLow, '200day new low strategy')
+
+r60 <- getCumReturns(tradesByDateHigh, 60)
+xlist60 <- compoundedReturn(r60$return60, r60$date)
+
+r90 <- getCumReturns(tradesByDateHigh, 90)
+xlist90 <- compoundedReturn(r90$return90, r90$date)
+
+r120 <- getCumReturns(tradesByDateHigh, 120)
+xlist120 <- compoundedReturn(r120$return120, r120$date)
+
+r200 <- getCumReturns(tradesByDateHigh, 200)
+xlist200 <- compoundedReturn(r200$return200, r200$date)
+
+r60 <- getCumReturns(tradesByDateLow, 60)
+xlist60 <- compoundedReturn(r60$return60, r60$date)
+
+r90 <- getCumReturns(tradesByDateLow, 90)
+xlist90 <- compoundedReturn(r90$return90, r90$date)
+
+r120 <- getCumReturns(tradesByDateLow, 120)
+xlist120 <- compoundedReturn(r120$return120, r120$date)
+
+r200 <- getCumReturns(tradesByDateLow, 200)
+xlist200 <- compoundedReturn(r200$return200, r200$date)
+
+finalResult <- data.frame(r60 = xlist60$return[nrow(xlist60)],
+                          r90 = xlist90$return[nrow(xlist90)],
+                          r120 = xlist120$return[nrow(xlist120)],
+                          r200 = xlist200$return[nrow(xlist200)])
+finalResult <- rbind(finalResult, c(xlist60$return[nrow(xlist60)],
+                                    xlist90$return[nrow(xlist90)],
+                                    xlist120$return[nrow(xlist120)],
+                                    xlist200$return[nrow(xlist200)]))
+
+rownames(finalResult) <- c('NewHigh', 'NewLow')
 allTrades <- getAllTradesReturns(tradesByDateHigh)
-plot(allTrades$r60, xaxt = 'n', yaxt = 'n', pch = 20, ylim = c(-1, 15))
-points(allTrades$r90, pch = 20, col = 'red')
-points(allTrades$r120, pch = 20, col = 'green')
-points(allTrades$r200, pch = 19, col = 'blue')
-axis(1, at=1:nrow(allTrades), labels = allTrades$date, cex.axis=0.6)
-axis(2, at = seq(-1, 15, by = 1), las=2)
-legend('topleft', legend=c('Return60', 'Return90', 'Return120', 'Return200'), 
-       col = c('black', 'red', 'green', 'blue'), pch = 19, cex = 0.8)
 
-allTradesLow <- getAllTradesReturns(tradesByDateLow)
-plot(allTradesLow$r60, xaxt = 'n', yaxt = 'n', pch = 20, ylim = c(-2, 5))
-points(allTradesLow$r90, pch = 20, col = 'red')
-points(allTradesLow$r120, pch = 20, col = 'green')
-points(allTradesLow$r200, pch = 19, col = 'blue')
-axis(1, at=1:nrow(allTradesLow), labels = allTradesLow$date, cex.axis=0.6)
-axis(2, at = seq(-2, 5, by = 1), las=2)
-legend('topleft', legend=c('Return60', 'Return90', 'Return120', 'Return200'), 
-       col = c('black', 'red', 'green', 'blue'), pch = 19, cex = 0.8)
+# in case of too many buying candidates, randomly pick limitNum
+pickRandomTradesByDate <- function(allTrades, limitNum)
+{
+  randomTrades <- NULL
+  dates <- levels(as.factor(allTrades$date))
+  for (i in 1 : length(dates)) {
+    trades <- allTrades[allTrades$date == dates[i], ]
+    stocks <- paste(trades$stock, collapse = ', ')
+    if (nrow(trades) > 0) {
+      if (nrow(trades) > limitNum) {
+        RandomNum <- round(runif(limitNum, 1, nrow(trades)))
+        r60 <- sum(trades$ret60[RandomNum])/limitNum
+        r90 <- sum(trades$ret90[RandomNum])/limitNum
+        r120 <- sum(trades$ret120[RandomNum])/limitNum
+        r200 <- sum(trades$ret200[RandomNum])/limitNum
+        stocks <- paste(trades$stock[RandomNum], collapse = ', ')
+      }
+      else {
+        r60 <- sum(trades$ret60)/nrow(trades)
+        r90 <- sum(trades$ret90)/nrow(trades)
+        r120 <- sum(trades$ret120)/nrow(trades)
+        r200 <- sum(trades$ret200)/nrow(trades)
+      }
+      randomTrades <- rbind(randomTrades, c(dates[i], r60, r90, r120, r200, stocks))
+    }
+  }
+  randomTrades <- data.frame(randomTrades)
+  colnames(randomTrades) <- c('date', 'return60', 'return90', 'return120', 'return200', 'stocks')
+  randomTrades$return60 <- as.numeric(randomTrades$return60)
+  randomTrades$return90 <- as.numeric(randomTrades$return90)
+  randomTrades$return120 <- as.numeric(randomTrades$return120)
+  randomTrades$return200 <- as.numeric(randomTrades$return200)
+  return(randomTrades)
+}
 
+randomTrades <- pickRandomTradesByDate(high, 5)
+allRandomTrades <- getAllTradesReturns(randomTrades)
+allRandomTrades$stocks <- NULL
+for (i in 1 : nrow(allRandomTrades)) {
+  index <- which(allRandomTrades$date[i] == randomTrades$date)
+  allRandomTrades$stocks[i] <- randomTrades$stocks[index]
+}
+randomTrades <- pickRandomTradesByDate(low, 10)
+allRandomTrades <- getAllTradesReturns(randomTrades)
+plotAllCompoundedReturns(randomTrades, '200day new high strategy Random')
 
-spy <- tq_get('SPY',                    
-              from = tradesByDateHigh$date[1],
-              to = tradesByDateHigh$date[nrow(tradesByDateHigh)],
-              get = "stock.prices")
-
-spy$close[nrow(spy)]/spy$close[1] - 1
-
+0.1/(-0.1 + 1)
+0.2/(-0.2 + 1)
+0.5/(-0.5 + 1)
 0.9/(-0.9 + 1)
+
+# percentage down <-> percentage up to break even
+x <- seq(-1, 0, 0.01)
+y <- -x/(x + 1)
+plot(x, y)
 
