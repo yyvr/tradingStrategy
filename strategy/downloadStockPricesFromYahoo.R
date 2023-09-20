@@ -6,13 +6,13 @@ library(data.table)
 library(tibble)
 library(tidyquant)
 
-all <- read.csv('/Users/yang/Downloads/invest/tickers/nasdaq_screener_1667650603297.csv')
+all <- read.csv('/Users/yang/Downloads/invest/tickers/nasdaq_screener_1694844542515.csv')
 all <- data.frame(all)
 all <- all[!is.na(all$Symbol), ]
 all$Sector <- as.factor(all$Sector)
 all$Industry <- as.factor(all$Industry)
-all <- all[all$Market.Cap > 1000000000, ]
-tickers <- all$Symbol[(1):nrow(all)]
+all <- all[all$Market.Cap > 500000000, ]
+tickers <- all$Symbol[(2468):nrow(all)]
 start <- '2020-01-01'
 end <- as.character(Sys.Date())
 peirod <- paste(start, end)
